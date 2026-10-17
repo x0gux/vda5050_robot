@@ -43,6 +43,7 @@ class MessageBuilder:
     def build_state(
         self,
         *,
+        op_state: str = "IDLE",
         order_id: str = "",
         order_update_id: int = 0,
         last_node_id: Optional[str] = None,
@@ -64,6 +65,7 @@ class MessageBuilder:
             "version": "2.0.0",
             "manufacturer": self.identity.manufacturer,
             "serialNumber": self.identity.serial_number,
+            "opState": op_state,
             "orderId": order_id,
             "orderUpdateId": order_update_id,
             "lastNodeId": last_node_id,

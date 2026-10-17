@@ -62,6 +62,7 @@ def snapshot_state_payload() -> Dict[str, Any]:
     node_states, edge_states, action_states = runner.route_state()
     with core_lock:
         return builder.build_state(
+            op_state=robot_state.op_state.value,
             order_id=core["order_id"],
             order_update_id=core["order_update_id"],
             last_node_id=core["last_node_id"],

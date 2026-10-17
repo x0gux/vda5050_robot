@@ -12,6 +12,7 @@ REQUIRED_STATE_KEYS = {
     "headerId", "timestamp", "version", "manufacturer", "serialNumber",
     "orderId", "orderUpdateId", "lastNodeId", "lastNodeSequenceId",
     "agvPosition", "batteryState", "actionStates", "nodeStates", "edgeStates", "errors",
+    "opState",
 }
 REQUIRED_AGV_POSITION_KEYS = {"x", "y", "theta", "mapId", "positionInitialized"}
 TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$")
