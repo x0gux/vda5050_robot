@@ -1,0 +1,32 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: study-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -p 1883 -t '$$SYS/broker/uptime' -C 1 -W 5 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  robot-sim:
+    build: ./robot-sim
+    container_name: study-robot-sim
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    environment:
+      MQTT_BROKER_URL: tcp://mosquitto:1883
+      ROBOT_MANUFACTURER: study
+      ROBOT_SERIAL: SIM-001
+      MAP_ID: study_map
+      STATE_PERIOD_MS: "500"
+      CONTROL_API_PORT: "8090"
+    ports:
+      - "8090:8090"
+    restart: unless-stopped
