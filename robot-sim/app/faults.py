@@ -94,9 +94,7 @@ class FaultEngine:
 
     def active_faults(self) -> List[str]:
         with self._lock:
-            return list(self._timers.keys())
-
-    # ---- auto 모드 ----
+            return list(self._timers.keys())    # ---- auto 모드 ----
     def set_auto(self, enabled: bool, interval_s: float = 120.0,
                  types: Optional[List[str]] = None) -> Dict[str, Any]:
         with self._lock:
@@ -135,10 +133,16 @@ class FaultEngine:
 
     # ---- 내부 ----
     def _arm(self, fault_type: str, duration_s: float, on_expire) -> None:
-        timer = threading.Timer(max(0.1, duration_s), on_expire)
+        timer = threading.Timer(max(0.1, duration_s), lambda: self._on_expire(fault_type, on_expire))
         timer.daemon = True
         self._timers[fault_type] = timer
         timer.start()
+
+    def _on_expire(self, fault_type: str, on_expire) -> None:
+        """자연 만료 — active 목록에서도 제거해야 /faults가 정직하게 보인다."""
+        with self._lock:
+            self._timers.pop(fault_type, None)
+        on_expire()
 
     def _cancel_timer(self, fault_type: str) -> None:
         timer = self._timers.pop(fault_type, None)

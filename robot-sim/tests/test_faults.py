@@ -121,3 +121,12 @@ def test_auto_mode_lifecycle():
     engine.set_auto(False)
     assert engine._auto_thread is None
     engine.stop()
+
+
+def test_natural_expiry_removes_from_active_list():
+    rs, battery, core, lock, runner, engine = make_env()
+    engine.inject("sto_warning", 0.3)
+    assert "sto_warning" in engine.active_faults()
+    time.sleep(0.5)
+    assert engine.active_faults() == []            # 자연 만료 후 active 목록에서 제거
+    assert not rs.has_error("STO")
