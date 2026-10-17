@@ -18,6 +18,8 @@ from fastapi import FastAPI
 
 from app.battery import BatteryModel, manage_low_battery_warning
 from app.config import settings
+from app.control_api import create_control_router
+from app.faults import FaultEngine
 from app.identity import Identity
 from app.instant_actions import handle_instant_action
 from app.messages import MessageBuilder
@@ -66,7 +68,8 @@ motion = MotionEngine(runner=runner, policy=policy,
                       speed_mps=settings.speed_mps,
                       dt_s=max(settings.state_period_ms, 500) / 1000.0,
                       zones=settings.safety_zones,
-                      comm_ok=lambda: mqtt_client.connected)
+                      comm_ok=lambda: mqtt_client.connected
+                      and time.monotonic() >= core.get("comm_loss_until", 0))
 
 
 def snapshot_state_payload() -> Dict[str, Any]:
@@ -112,20 +115,28 @@ mqtt_client = SimMqttClient(
     on_instant_actions=on_instant_actions,
 )
 
+fault_engine = FaultEngine(core=core, core_lock=core_lock, robot_state=robot_state,
+                           battery=battery, mqtt_client=mqtt_client, runner=runner)
+
 
 def state_loop() -> None:
-    """2Hz: 주행 틱 → state 발행 → visualization 발행 → 배터리 진행."""
+    """2Hz: 주행 틱 → state 발행 → visualization 발행 → 배터리 진행.
+
+    comm_loss 주입 중에는 발행을 생략한다 (관제에서 OFFLINE으로 보이는 현상의 재현).
+    """
     period_s = max(settings.state_period_ms, 500) / 1000.0  # 하한 가드: 2Hz 초과 금지
     while not stop_event.is_set():
         try:
             motion.tick(core, core_lock, robot_state, now=time.monotonic())
             battery.tick()
             manage_low_battery_warning(robot_state, battery, settings.low_battery_threshold)
-            payload = snapshot_state_payload()
-            mqtt_client.publish(identity.state_topic(), payload, qos=0)
-            with core_lock:
-                vis = builder.build_visualization(x=core["x"], y=core["y"], theta=core["theta"])
-            mqtt_client.publish(identity.visualization_topic(), vis, qos=0)
+            suppressed = time.monotonic() < core.get("comm_loss_until", 0)
+            if not suppressed:
+                payload = snapshot_state_payload()
+                mqtt_client.publish(identity.state_topic(), payload, qos=0)
+                with core_lock:
+                    vis = builder.build_visualization(x=core["x"], y=core["y"], theta=core["theta"])
+                mqtt_client.publish(identity.visualization_topic(), vis, qos=0)
         except Exception:  # 루프는 절대 죽지 않는다 — 로봇은 발행을 멈추지 않는다
             log.exception("state loop iteration failed")
         stop_event.wait(period_s)
@@ -144,10 +155,12 @@ async def lifespan(app: FastAPI):
     )
     yield
     stop_event.set()
+    fault_engine.stop()
     mqtt_client.stop()
 
 
 app = FastAPI(title="bsm_study_vda5050 robot-sim", lifespan=lifespan)
+app.include_router(create_control_router(fault_engine))
 
 
 @app.get("/health")

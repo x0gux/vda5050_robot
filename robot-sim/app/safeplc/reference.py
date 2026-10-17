@@ -54,5 +54,13 @@ class ReferenceSafePolicy:
             if distance <= float(zone["radius_m"]):
                 max_speed = min(max_speed, float(zone["max_speed_mps"]))
 
+        # 5) 활성 에러에 대한 안전 반응 (T7 고장주입과 연결)
+        #    - 구동유닛 고장(ERROR) → 주행 차단
+        #    - STO 워닝(WARNING)   → 정지는 아니지만 속도 절반 상한 (충전 도킹 관찰 사례)
+        if "DriveFault" in ctx.errors_active:
+            allow_move = False
+        if "STO" in ctx.errors_active:
+            max_speed = min(max_speed, 0.5 * ctx.speed_requested)
+
         return SafeVerdict(allow_move=allow_move, max_speed_mps=max_speed,
                            new_errors=new_errors, clear_error_types=clear_error_types)
