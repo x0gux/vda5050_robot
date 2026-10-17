@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # 제어 REST API 포트
     control_api_port: int = 8090
 
+    # 노드 액션(pick/drop 등) 소요 시간 (초)
+    action_duration_s: float = 2.0
+
     # 배터리 (T5에서 충전 관련 값 추가 사용)
     battery_drain_pct_per_min: float = 0.5
     battery_charge_pct_per_min: float = 10.0
