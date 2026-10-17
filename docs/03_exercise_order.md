@@ -55,6 +55,8 @@ for line in sys.stdin:
 ```
 
 > 위 스크립트는 로봇 어디에 있든 동작합니다 — 오더의 첫 노드로 먼저 돌아간 뒤 경로를 주행하기 때문입니다.
+> 단, 로봇이 이미 그 오더를 **완주한 뒤에** 스트림을 시작하면 WORKING이 안 보일 수 있습니다 —
+> 그 경우 오더를 다시 발행하고 바로 스트림을 시작하세요.
 
 **무엇이 보이는가** (예상 출력 흐름):
 
@@ -96,7 +98,7 @@ docker compose exec mosquitto mosquitto_pub -h localhost \
   -t "uagv/v2/study/SIM-001/order" -f /tmp/order.json
 sleep 1
 # 다른 orderId를 가진 사본을 만들어 발행 → busy 거절
-sed 's/ORDER-MOVE-N1-N3/ORDER-OTHER/' /tmp/order.json > /tmp/order2.json
+sed 's/ORDER-MOVE-N1-N3/ORDER-OTHER/' examples/order_move_n1_n3.json > /tmp/order2.json
 docker cp /tmp/order2.json study-mosquitto:/tmp/order2.json
 docker compose exec mosquitto mosquitto_pub -h localhost \
   -t "uagv/v2/study/SIM-001/order" -f /tmp/order2.json
