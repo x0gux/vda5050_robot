@@ -1,0 +1,1 @@
+{"headerId": 12, "timestamp": "2026-10-18T00:04:00.000Z", "version": "2.0.0", "manufacturer": "study", "serialNumber": "SIM-001", "actions": [{"actionId": "cancel-1", "actionType": "cancelOrder", "blockingType": "NONE"}]}
