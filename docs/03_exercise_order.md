@@ -88,26 +88,44 @@ N1→N3은 6m이고 기본 속도는 1m/s. 대략 몇 초 걸릴지 예측해보
 `examples/order_move_n1_n3.json`의 `orderUpdateId`를 1로 고치고 orderId를 동일하게 유지해 발행해 보세요.
 (직접 해보기 과제 — state에서 `orderUpdateId`가 1로 바뀌는지 확인)
 
-## 실패 케이스도 체험
+## 실패 케이스도 체험 — 중복 무시와 busy 거절
 
-주행 중인 로봇에게 **다른 orderId**의 오더를 발행하면 거절됩니다:
+실물과 같은 두 가지 방어 로직을 경험합니다.
+
+**케이스 1 — 완주한 오더를 다시 보내면 무시된다 (QoS1 중복 방어).**
+MQTT QoS1은 같은 메시지가 두 번 도착할 수 있습니다. 완주한 오더가 재전송되어 로봇이
+다시 달리기 시작하면 사고입니다. 그래서 로봇은 같은 orderId+orderUpdateId 재발행을 무시합니다:
 
 ```bash
-# 주행 시작
 docker compose exec mosquitto mosquitto_pub -h localhost \
   -t "uagv/v2/study/SIM-001/order" -f /tmp/order.json
-sleep 1
-# 다른 orderId를 가진 사본을 만들어 발행 → busy 거절
-sed 's/ORDER-MOVE-N1-N3/ORDER-OTHER/' examples/order_move_n1_n3.json > /tmp/order2.json
+docker compose logs robot-sim --tail 3
+# → "ignored: stale orderUpdateId" (완주한 같은 오더 재발행 시)
+```
+
+그래서 **새 주행에는 항상 새 orderId**를 사용합니다 (VDA5050 관례):
+
+```bash
+sed 's/ORDER-MOVE-N1-N3/ORDER-GO-1/' examples/order_move_n1_n3.json > /tmp/order1.json
+docker cp /tmp/order1.json study-mosquitto:/tmp/order1.json
+docker compose exec mosquitto mosquitto_pub -h localhost \
+  -t "uagv/v2/study/SIM-001/order" -f /tmp/order1.json
+```
+
+**케이스 2 — 주행 중 다른 오더는 거절된다 (busy).**
+
+```bash
+sleep 1   # 주행 중 만들기
+sed 's/ORDER-GO-1/ORDER-GO-2/' /tmp/order1.json > /tmp/order2.json
 docker cp /tmp/order2.json study-mosquitto:/tmp/order2.json
 docker compose exec mosquitto mosquitto_pub -h localhost \
   -t "uagv/v2/study/SIM-001/order" -f /tmp/order2.json
 sleep 0.5
 docker compose logs robot-sim --tail 5
+# → "rejected: busy with ORDER-GO-1"
 ```
 
-> 반대로 **같은 orderId**를 다시 보내면 "거절"이 아니라 `ignored: stale orderUpdateId`
-> (중복 무시)로 처리됩니다 — QoS1에서 같은 메시지가 두 번 오는 상황을 로봇이 흡수하는 장치입니다.
+이 "409 거절"이 화면(관제)에서 오더 발행 실패로 이어지는 이유입니다.
 
 **수용기준 (STEP1-2 통과 조건)**
 - [ ] IDLE 상태에서 nodeStates/edgeStates가 비어 있음을 관측
