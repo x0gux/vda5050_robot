@@ -19,11 +19,13 @@ from fastapi import FastAPI
 from app.battery import BatteryModel, manage_low_battery_warning
 from app.config import settings
 from app.identity import Identity
+from app.instant_actions import handle_instant_action
 from app.messages import MessageBuilder
 from app.motion import MotionEngine
 from app.mqtt_client import SimMqttClient
 from app.order_runner import OrderRunner
 from app.safeplc.base import NullPolicy
+from app.safeplc.reference import ReferenceSafePolicy
 from app.state_machine import RobotState
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -54,13 +56,17 @@ core: Dict[str, Any] = {
     "x": 0.0,   # N1 (0, 0) 출발
     "y": 0.0,
     "theta": 0.0,
+    "estop_active": False,      # faxEStop (T6)
+    "obstacle_active": False,   # 고장주입 (T7)
 }
 
 runner = OrderRunner(robot_state, action_duration_s=settings.action_duration_s, battery=battery)
-policy = NullPolicy()  # T6에서 ReferenceSafePolicy로 교체
+policy = ReferenceSafePolicy(zones=settings.safety_zones)  # T6: safePLC 참조정책
 motion = MotionEngine(runner=runner, policy=policy,
                       speed_mps=settings.speed_mps,
-                      dt_s=max(settings.state_period_ms, 500) / 1000.0)
+                      dt_s=max(settings.state_period_ms, 500) / 1000.0,
+                      zones=settings.safety_zones,
+                      comm_ok=lambda: mqtt_client.connected)
 
 
 def snapshot_state_payload() -> Dict[str, Any]:
@@ -95,18 +101,7 @@ def on_order(data: Dict[str, Any]) -> None:
 
 def on_instant_actions(data: Dict[str, Any]) -> None:
     for action in data.get("actions", []):
-        action_type = action.get("actionType")
-        action_id = action.get("actionId")
-        if action_type == "cancelOrder":
-            had = runner.cancel()
-            if had:
-                with core_lock:
-                    core["order_id"] = ""
-                    core["order_update_id"] = 0
-            log.info("[instant] cancelOrder done (had_active=%s) actionId=%s", had, action_id)
-        else:
-            # faxEStop 등 안전 액션은 T6(safePLC)에서 처리된다
-            log.info("[instant] %s received — handling lands in T6 (actionId=%s)", action_type, action_id)
+        handle_instant_action(action, runner, core, core_lock)
 
 
 mqtt_client = SimMqttClient(

@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # 노드 액션(pick/drop 등) 소요 시간 (초)
     action_duration_s: float = 2.0
 
+    # safePLC 존 정의 (JSON 배열): [{"name":"hazard","center":{"x":3,"y":0},"radius_m":1.5,"max_speed_mps":0.3}]
+    safety_zones: list = []
+
     # 배터리 (T5에서 충전 관련 값 추가 사용)
     battery_start_level: float = 100.0
     battery_drain_pct_per_min: float = 0.5

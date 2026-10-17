@@ -33,15 +33,45 @@ def _same(a: Vec, b: Vec, eps: float = 1e-9) -> bool:
 
 
 class MotionEngine:
-    def __init__(self, runner: OrderRunner, policy: SafePolicy, speed_mps: float, dt_s: float):
+    def __init__(self, runner: OrderRunner, policy: SafePolicy, speed_mps: float, dt_s: float,
+                 zones=None, comm_ok=None):
         self.runner = runner
         self.policy = policy
         self.speed_mps = speed_mps
         self.dt_s = dt_s
+        self.zones = zones or []            # [{name, center{x,y}, radius_m, max_speed_mps}]
+        self.comm_ok = comm_ok              # Callable[[], bool] | None
+
+    def _zones_at(self, pos: Vec) -> list:
+        names = []
+        for zone in self.zones:
+            d = math.hypot(pos.x - float(zone["center"]["x"]), pos.y - float(zone["center"]["y"]))
+            if d <= float(zone["radius_m"]):
+                names.append(zone.get("name", "?"))
+        return names
 
     def tick(self, core: Dict[str, Any], core_lock, robot_state: RobotState, now: float) -> None:
         """state 발행 주기마다 1회 호출 — 1틱 = dt_s초의 움직임."""
         with core_lock:
+            # 0) 안전 심의는 오더 유무와 무관하게 "항상" 먼저 수행한다.
+            #    E-stop 중에도 관제가 FATAL을 봐야 하기 때문이다 (safePLC 불변식).
+            pos = Vec(core["x"], core["y"])
+            comm_ok = self.comm_ok() if self.comm_ok else True
+            verdict = self.policy.evaluate(SafeContext(
+                position=pos,
+                speed_requested=self.speed_mps,
+                estop_active=bool(core.get("estop_active", False)),
+                obstacle_active=bool(core.get("obstacle_active", False)),
+                comm_ok=comm_ok,
+                inside_zones=self._zones_at(pos),
+                errors_active=[e.get("errorType", "") for e in robot_state.errors],
+            ))
+            for e in verdict.new_errors:
+                robot_state.add_error(e["errorLevel"], e["errorType"],
+                                      e["errorReference"], e["errorDescription"])
+            for error_type in verdict.clear_error_types:
+                robot_state.remove_error(error_type)
+
             active = self.runner.active
             if active is None or active.finished:
                 robot_state.recalculate_op_state(working=False)
@@ -49,8 +79,12 @@ class MotionEngine:
 
             t = active.target_idx
             w = active.current_waypoint()
-            pos = Vec(core["x"], core["y"])
             target = Vec(w.x, w.y)
+
+            # 보호정지/비상정지/통신두절 — 이동도, 노드 액션 진행도 멈춘다
+            if not verdict.allow_move:
+                robot_state.recalculate_op_state(working=True)
+                return
 
             # 1) 노드 위에 서 있으면: 노드 액션 진행 (차량 정지 — 실물도 노드에서 액션 중엔 멈춘다)
             if active.arrived_idx == t:
@@ -58,20 +92,7 @@ class MotionEngine:
                 robot_state.recalculate_op_state(working=not active.finished)
                 return
 
-            # 2) 이동 — 안전정책 심의 통과 필요 (safePLC 불변식)
-            verdict = self.policy.evaluate(SafeContext(
-                position=pos,
-                speed_requested=self.speed_mps,
-                estop_active=False,      # T6에서 실제 값 주입
-                obstacle_active=False,   # T6/T7
-                comm_ok=True,            # T6/T7
-                inside_zones=[],         # T6
-                errors_active=[e.get("errorType", "") for e in robot_state.errors],
-            ))
-            if not verdict.allow_move:
-                robot_state.recalculate_op_state(working=True)
-                return
-
+            # 2) 이동 — 정책이 허용한 상한 속도로
             speed = min(self.speed_mps, verdict.max_speed_mps)
             moved = step_toward(pos, target, speed * self.dt_s)
             core["x"], core["y"] = moved.x, moved.y
