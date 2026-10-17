@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+*.pyc
+robot-sim/.env
+
+# OS
+.DS_Store
+
+# Docker
+*.log
