@@ -39,3 +39,16 @@ class BatteryModel:
     @property
     def is_low(self) -> bool:
         return self.level < self.low_threshold and not self.charging
+
+
+def manage_low_battery_warning(robot_state, battery: "BatteryModel", threshold: float) -> None:
+    """저전압 WARNING 관리 — T5.
+
+    - 배터리 < threshold && 미충전: WARNING(BatteryLow, BAT-001) 유지 (중복 추가는 add_error가 흡수)
+    - 충전 시작 또는 임계 회복: WARNING 제거
+    """
+    if battery.is_low:
+        robot_state.add_error("WARNING", "BatteryLow", "BAT-001",
+                              f"battery below {threshold:.0f}%")
+    elif robot_state.has_error("BatteryLow"):
+        robot_state.remove_error("BatteryLow")

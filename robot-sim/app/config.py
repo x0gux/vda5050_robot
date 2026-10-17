@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     action_duration_s: float = 2.0
 
     # 배터리 (T5에서 충전 관련 값 추가 사용)
+    battery_start_level: float = 100.0
     battery_drain_pct_per_min: float = 0.5
     battery_charge_pct_per_min: float = 10.0
     low_battery_threshold: float = 20.0

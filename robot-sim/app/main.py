@@ -16,7 +16,7 @@ from typing import Any, Dict
 
 from fastapi import FastAPI
 
-from app.battery import BatteryModel
+from app.battery import BatteryModel, manage_low_battery_warning
 from app.config import settings
 from app.identity import Identity
 from app.messages import MessageBuilder
@@ -35,7 +35,12 @@ identity = Identity(
     map_id=settings.map_id,
 )
 builder = MessageBuilder(identity)
-battery = BatteryModel(drain_pct_per_min=settings.battery_drain_pct_per_min)
+battery = BatteryModel(
+    level=settings.battery_start_level,
+    drain_pct_per_min=settings.battery_drain_pct_per_min,
+    charge_pct_per_min=settings.battery_charge_pct_per_min,
+    low_threshold=settings.low_battery_threshold,
+)
 robot_state = RobotState()
 stop_event = threading.Event()
 
@@ -51,7 +56,7 @@ core: Dict[str, Any] = {
     "theta": 0.0,
 }
 
-runner = OrderRunner(robot_state, action_duration_s=settings.action_duration_s)
+runner = OrderRunner(robot_state, action_duration_s=settings.action_duration_s, battery=battery)
 policy = NullPolicy()  # T6에서 ReferenceSafePolicy로 교체
 motion = MotionEngine(runner=runner, policy=policy,
                       speed_mps=settings.speed_mps,
@@ -120,6 +125,7 @@ def state_loop() -> None:
         try:
             motion.tick(core, core_lock, robot_state, now=time.monotonic())
             battery.tick()
+            manage_low_battery_warning(robot_state, battery, settings.low_battery_threshold)
             payload = snapshot_state_payload()
             mqtt_client.publish(identity.state_topic(), payload, qos=0)
             with core_lock:

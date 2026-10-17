@@ -95,10 +95,11 @@ class ActiveOrder:
 
 
 class OrderRunner:
-    def __init__(self, state: RobotState, action_duration_s: float = 2.0, clock=None):
+    def __init__(self, state: RobotState, action_duration_s: float = 2.0, clock=None, battery=None):
         self.robot_state = state
         self.action_duration_s = action_duration_s
         self.clock = clock or time.monotonic
+        self.battery = battery
         self.active: Optional[ActiveOrder] = None
         self._lock = threading.Lock()
 
@@ -141,6 +142,8 @@ class OrderRunner:
             had = self.active is not None
             self.active = None
             if had:
+                if self.battery is not None:
+                    self.battery.charging = False  # 충전 중 취소 시 충전 정지
                 log.info("order cancelled — 활성 오더 폐기")
             return had
 
@@ -163,23 +166,39 @@ class OrderRunner:
             log.info("node reached: %s (seq=%d) actions=%d", w.node_id, w.sequence_id, len(w.actions))
 
     def advance_actions(self, now: float) -> None:
-        """노드 액션 타이머 진행 — 끝나면 다음 웨이포인트로 출발 or 오더 완료."""
+        """노드 액션 타이머 진행 — 끝나면 다음 웨이포인트로 출발 or 오더 완료.
+
+        charge 액션은 시간이 아니라 배터리 100% 도달이 완료 조건이다 (T5).
+        """
         with self._lock:
             active = self.active
             if active is None or active.finished or active.arrived_idx < 0:
                 return
-            if active.running_action and now - active.running_action["started_at"] >= self.action_duration_s:
-                log.info("action finished: %s (%s)", active.running_action["actionId"],
-                         active.running_action["actionType"])
-                active.running_action = None
-                active.action_cursor += 1
-                active.running_action = self._start_next_action(active)
+            if active.running_action:
+                is_charge = (active.running_action.get("actionType") == "charge"
+                             and self.battery is not None)
+                if is_charge:
+                    if self.battery.level >= 100.0:
+                        self._finish_running_action(active)
+                elif now - active.running_action["started_at"] >= self.action_duration_s:
+                    self._finish_running_action(active)
             if active.actions_done():
                 if active.arrived_idx >= len(active.waypoints) - 1:
                     active.finished = True
+                    if self.battery is not None:
+                        self.battery.charging = False
                     log.info("order completed: %s", active.order_id)
                 else:
                     active.target_idx = active.arrived_idx + 1
+
+    def _finish_running_action(self, active: ActiveOrder) -> None:
+        log.info("action finished: %s (%s)", active.running_action["actionId"],
+                 active.running_action["actionType"])
+        if active.running_action.get("actionType") == "charge" and self.battery is not None:
+            self.battery.charging = False
+        active.running_action = None
+        active.action_cursor += 1
+        active.running_action = self._start_next_action(active)
 
     def _start_next_action(self, active: ActiveOrder) -> Optional[Dict[str, Any]]:
         w = active.waypoints[active.arrived_idx]
@@ -188,6 +207,8 @@ class OrderRunner:
             if not a.get("actionId"):
                 active.action_cursor += 1  # actionId 없는 액션은 실행 불가 — 스킵
                 continue
+            if a.get("actionType") == "charge" and self.battery is not None:
+                self.battery.charging = True  # T5: 충전 액션 시작
             return {"actionId": str(a["actionId"]), "actionType": a.get("actionType"),
                     "started_at": self.clock()}
         return None
