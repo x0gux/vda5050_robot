@@ -53,6 +53,14 @@ docker compose exec mosquitto mosquitto_sub -h localhost -t 'uagv/#' -v -C 5 -W 
 
 부속물: [examples/](examples/) 발행용 예제 페이로드 · [mosquitto 치트시트](examples/mosquitto_cheatsheet.md)
 
+## 📖 명령 레퍼런스 (Swagger 스타일)
+
+**[docs/vda5050_reference.html](docs/vda5050_reference.html)** — 브라우저로 열면:
+- 토픽 규칙(`uagv/v2/{manufacturer}/{serialNumber}/{messageType}`)·메시지 필드·명령 카탈로그를 한 화면에서
+- 명령마다 **[복사] 버튼** — 터미널에 붙여넣어 바로 실행
+- **라이브 콘솔** — 브라우저에서 브로커(WebSocket 9001)에 직접 연결해 state 실시간 관찰 + 버튼으로 오더/E-stop/고장주입 실행 (오프라인 동작, 외부 CDN 없음)
+- REST 제어API의 Swagger UI는 별도: <http://localhost:8090/docs>
+
 ## 구성 요소
 
 ```

@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.battery import BatteryModel, manage_low_battery_warning
 from app.config import settings
@@ -161,6 +162,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="bsm_study_vda5050 robot-sim", lifespan=lifespan)
 app.include_router(create_control_router(fault_engine))
+
+# 문서 HTML(file:// 또는 로컬 페이지)에서 제어API를 호출할 수 있게 허용 — 교육용 로컬 전용
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")

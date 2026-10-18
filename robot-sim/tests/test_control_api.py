@@ -65,3 +65,16 @@ def test_status_endpoint_shape():
     status = client.get("/status").json()
     for key in ("identity", "position", "battery", "opState", "orderId", "errors", "mqttConnected"):
         assert key in status
+
+
+def test_cors_allows_browser_docs():
+    """문서 HTML(file:// → Origin: null)에서의 호출 허용 확인."""
+    r = client.get("/health", headers={"Origin": "null"})
+    assert r.status_code == 200
+    assert r.headers.get("access-control-allow-origin") == "*"
+    preflight = client.options(
+        "/faults",
+        headers={"Origin": "null", "Access-Control-Request-Method": "POST"},
+    )
+    assert preflight.status_code == 200
+    assert preflight.headers.get("access-control-allow-origin") == "*"

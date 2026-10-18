@@ -119,4 +119,6 @@ STEP5에서 통신두절 고장을 주입해 이 현상을 직접 볼 것입니�
 
 ---
 
+한눈에 보는 토픽/명령 레퍼런스(HTML, 라이브 콘솔 포함): [vda5050_reference.html](vda5050_reference.html)
+
 다음 문서: [02 — STEP0 퀵스타트](02_quickstart.md)

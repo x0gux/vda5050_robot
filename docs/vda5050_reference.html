@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VDA5050 명령 레퍼런스 — bsm_study_vda5050</title>
+<style>
+  :root {
+    --bg: #fafafa; --card: #ffffff; --border: #d8dde3; --text: #1d2733;
+    --muted: #64748b; --accent: #1a7f64; --accent-dark: #0e4f40;
+    --blue: #2563eb; --orange: #ea580c; --red: #dc2626; --green: #16a34a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif; }
+  .topbar { background: var(--accent-dark); color: #fff; padding: 14px 24px;
+            display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+            position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+  .topbar h1 { font-size: 17px; margin: 0; font-weight: 700; }
+  .topbar .ver { background: rgba(255,255,255,.15); border-radius: 4px; padding: 2px 8px; font-size: 12px; }
+  .pill { border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 600; }
+  .pill.off { background: #475569; }
+  .pill.on  { background: var(--green); }
+  .pill.err { background: var(--red); }
+  main { max-width: 1080px; margin: 0 auto; padding: 20px 24px 80px; }
+  h2 { font-size: 20px; border-bottom: 2px solid var(--accent); padding-bottom: 6px; margin: 44px 0 14px; }
+  h2 .tag { font-size: 11px; vertical-align: middle; background: var(--accent); color: #fff;
+            border-radius: 4px; padding: 2px 7px; margin-left: 8px; }
+  h3 { font-size: 15px; margin: 22px 0 8px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+          padding: 16px 18px; margin: 12px 0; }
+  .ophead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; cursor: pointer; }
+  .method { font-family: ui-monospace, Menlo, monospace; font-weight: 700; font-size: 12px;
+            padding: 3px 10px; border-radius: 4px; color: #fff; }
+  .m-up   { background: var(--blue); }   /* 관제 → 로봇 */
+  .m-down { background: var(--accent); } /* 로봇 → 관제 */
+  .m-rest { background: #7c3aed; }       /* REST */
+  .topic { font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .seg { padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+  .seg.fix { background: #e2e8f0; color: #334155; }
+  .seg.var { background: #fef3c7; color: #92400e; border: 1px dashed #f59e0b; }
+  .meta { color: var(--muted); font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+  th, td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; font-size: 12px; }
+  code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; }
+  code.inline { background: #eef2f6; border-radius: 3px; padding: 1px 5px; font-size: 12.5px; }
+  pre { background: #0f172a; color: #dbe6f3; border-radius: 6px; padding: 12px 14px;
+        overflow-x: auto; font-size: 12.5px; line-height: 1.5; margin: 8px 0; }
+  pre .key { color: #7dd3fc; } pre .str { color: #fde68a; }
+  pre .num { color: #f9a8d4; } pre .bool { color: #86efac; } pre .null { color: #94a3b8; }
+  .copyrow { display: flex; align-items: stretch; gap: 8px; margin: 6px 0; }
+  .copyrow pre { flex: 1; margin: 0; }
+  button { cursor: pointer; border: none; border-radius: 5px; font-weight: 600; font-size: 12.5px; }
+  .btn-copy { background: #334155; color: #fff; padding: 0 12px; white-space: nowrap; }
+  .btn-copy:hover { background: #1e293b; }
+  .btn-cmd { background: var(--accent); color: #fff; padding: 8px 14px; margin: 4px 6px 4px 0; }
+  .btn-cmd:hover { background: var(--accent-dark); }
+  .btn-cmd.danger { background: var(--red); } .btn-cmd.danger:hover { background: #991b1b; }
+  .btn-cmd.warn { background: var(--orange); } .btn-cmd.warn:hover { background: #9a3412; }
+  .btn-cmd:disabled { background: #94a3b8; cursor: not-allowed; }
+  .badge { display: inline-block; border-radius: 4px; padding: 1px 8px; font-size: 11.5px; font-weight: 700; color: #fff; }
+  .b-warn { background: var(--orange); } .b-err { background: var(--red); }
+  .b-info { background: var(--blue); }  .b-ok { background: var(--green); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  /* 라이브 콘솔 */
+  .console { background: #0b1220; border-radius: 8px; padding: 14px; color: #dbe6f3; }
+  .console input[type=text] { background: #16203a; color: #e2e8f0; border: 1px solid #2b3a5c;
+      border-radius: 5px; padding: 7px 10px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; width: 100%; }
+  #feed { height: 300px; overflow-y: auto; background: #0f172a; border-radius: 6px; padding: 8px 10px;
+          font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; line-height: 1.5; }
+  #feed .t { color: #64748b; margin-right: 8px; }
+  #feed .tp { color: #7dd3fc; }
+  #feed .w { color: #fde68a; } #feed .e { color: #fca5a5; font-weight: 700; }
+  .connrow { display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+  .connrow input { flex: 1; min-width: 220px; }
+  .notice { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 10px 14px;
+            font-size: 13px; margin: 12px 0; }
+  .notice.red { background: #fef2f2; border-color: #fca5a5; }
+  .map { position: relative; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px;
+         height: 240px; margin: 10px 0; }
+  .node { position: absolute; width: 34px; height: 34px; border-radius: 50%; background: var(--blue);
+          color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700;
+          font-size: 12px; transform: translate(-50%, -50%); }
+  .node.chg { background: var(--green); }
+  .edge { position: absolute; background: #94a3b8; height: 3px; transform-origin: left center; }
+  .foot { color: var(--muted); font-size: 12px; margin-top: 50px; border-top: 1px solid var(--border); padding-top: 14px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>VDA5050 명령 레퍼런스</h1>
+  <span class="ver">bsm_study_vda5050</span>
+  <span class="ver">v2.0.0</span>
+  <span style="flex:1"></span>
+  <span class="pill off" id="pill">브로커 미연결</span>
+</div>
+
+<main>
+
+  <!-- ═══════════════ 1. 토픽 규칙 ═══════════════ -->
+  <h2>1. 토픽 규칙 <span class="tag">TOPIC CONVENTION</span></h2>
+  <div class="card">
+    <p>VDA5050의 모든 통신은 아래 템플릿의 MQTT 토픽으로 이뤄집니다. <b>한 칸이라도 틀리면 로봇/관제가 못 알아듣습니다.</b></p>
+    <p style="font-family: ui-monospace, Menlo, monospace; font-size: 15px;">
+      <span class="seg fix">uagv</span>/<span class="seg fix">v2</span>/<span class="seg var">{manufacturer}</span>/<span class="seg var">{serialNumber}</span>/<span class="seg var">{messageType}</span>
+    </p>
+    <table>
+      <tr><th>구간</th><th>값 (본 패키지)</th><th>규칙</th></tr>
+      <tr><td><code class="inline">uagv</code></td><td>고정</td><td>VDA5050 표준 토픽 접두어. 일부 구현은 <code class="inline">vda5050</code>을 쓰기도 함 — <b>같은 규격, 다른 접두어</b>이며 관제와 로봇이 합의하면 됨</td></tr>
+      <tr><td><code class="inline">v2</code></td><td>고정</td><td>프로토콜 메이저 버전 (v1/v2/v3 — 토픽에 박혀 있어 하위호환 관리에 쓰임)</td></tr>
+      <tr><td><code class="inline">{manufacturer}</code></td><td><code class="inline">study</code></td><td>제조사 식별자. <b>소문자 권장</b> (관제가 소문자로 정규화하는 관례가 많음)</td></tr>
+      <tr><td><code class="inline">{serialNumber}</code></td><td><code class="inline">SIM-001</code></td><td>로봇 개체 번호. 제조사+시리얼이 로봇의 고유 키</td></tr>
+      <tr><td><code class="inline">{messageType}</code></td><td>아래 표</td><td>state / connection / visualization / order / instantActions</td></tr>
+    </table>
+    <h3>메시지 타입 5종 — 방향과 주기</h3>
+    <table>
+      <tr><th>messageType</th><th>방향</th><th>주기/시점</th><th>QoS</th><th>역할</th></tr>
+      <tr><td><b>state</b></td><td>로봇 → 관제</td><td>상시 (본 패키지: 500ms)</td><td>0</td><td>위치·배터리·진행률·에러 전체 상태</td></tr>
+      <tr><td><b>visualization</b></td><td>로봇 → 관제</td><td>state보다 빠르게 (선택)</td><td>0</td><td>지도 렌더링용 위치 스트림</td></tr>
+      <tr><td><b>connection</b></td><td>로봇 → 관제</td><td>접속/복구 시 (<b>retain</b>)</td><td>0</td><td>ONLINE / OFFLINE / CONNECTIONBROKEN</td></tr>
+      <tr><td><b>order</b></td><td>관제 → 로봇</td><td>작업 지시 시</td><td>1</td><td>노드/엣지 경로 + 노드별 액션</td></tr>
+      <tr><td><b>instantActions</b></td><td>관제 → 로봇</td><td>즉시 필요할 때</td><td>1</td><td>비상정지(faxEStop), 오더 취소 등</td></tr>
+    </table>
+    <p class="meta">💡 connection만 retain을 쓰는 이유: 늦게 구독한 관제도 "이 로봇 ONLINE"을 즉시 알게 하려고. state는 매초 새것이 오므로 retain 불필요.</p>
+  </div>
+
+  <!-- ═══════════════ 2. 메시지 카탈로그 ═══════════════ -->
+  <h2>2. 메시지 카탈로그 <span class="tag">MESSAGES</span></h2>
+
+  <div class="card">
+    <div class="ophead" onclick="toggleCard(this)">
+      <span class="method m-down">로봇 → 관제</span><span class="topic">…/state</span>
+      <span class="meta">초 2회 · 가장 중요한 메시지 ▾</span>
+    </div>
+    <div class="body">
+      <table>
+        <tr><th>필드</th><th>타입</th><th>설명</th></tr>
+        <tr><td><code class="inline">headerId</code></td><td>int</td><td><b>토픽별</b> 단조 증가. 유실/중복/순서 판별의 기준</td></tr>
+        <tr><td><code class="inline">timestamp</code></td><td>string</td><td>ISO-8601 UTC (<code class="inline">…Z</code>)</td></tr>
+        <tr><td><code class="inline">version</code></td><td>string</td><td><code class="inline">"2.0.0"</code></td></tr>
+        <tr><td><code class="inline">manufacturer</code> / <code class="inline">serialNumber</code></td><td>string</td><td>토픽과 동일한 로봇 식별자</td></tr>
+        <tr><td><code class="inline">opState</code></td><td>string</td><td>IDLE / WORKING / ERROR — 표준 필드가 아니라 <b>관제가 추론한 값</b> (FATAL·ERROR 에러→ERROR, 진행중→WORKING). 본 패키지는 편의상 함께 실어 보냄</td></tr>
+        <tr><td><code class="inline">orderId</code> / <code class="inline">orderUpdateId</code></td><td>string / int</td><td>현재 수행 중인 오더와 그 갱신 버전</td></tr>
+        <tr><td><code class="inline">lastNodeId</code> / <code class="inline">lastNodeSequenceId</code></td><td>string / int</td><td>마지막으로 <b>도달</b>한 노드 (이동 중엔 직전 노드 유지)</td></tr>
+        <tr><td><code class="inline">agvPosition</code></td><td>object</td><td><code class="inline">{x, y, theta, mapId, positionInitialized}</code> — theta는 +x축 기준 도(°)</td></tr>
+        <tr><td><code class="inline">batteryState</code></td><td>object</td><td><code class="inline">{batteryCharge: 0~100, charging: bool}</code></td></tr>
+        <tr><td><code class="inline">actionStates[]</code></td><td>array</td><td><code class="inline">{actionId, actionType, actionStatus}</code> — WAITING/RUNNING/FINISHED/FAILED…</td></tr>
+        <tr><td><code class="inline">nodeStates[]</code> / <code class="inline">edgeStates[]</code></td><td>array</td><td>경로 진행률 — PENDING / RUNNING / FINISHED. <b>비어 있으면 로봇이 하는 일 없음(IDLE 판정 근거)</b></td></tr>
+        <tr><td><code class="inline">errors[]</code></td><td>array</td><td><code class="inline">{errorLevel, errorType, errorReference, errorDescription}</code></td></tr>
+      </table>
+      <div class="copyrow"><pre id="ex-state"></pre><button class="btn-copy" onclick="copyPre('ex-state')">복사</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ophead" onclick="toggleCard(this)">
+      <span class="method m-down">로봇 → 관제</span><span class="topic">…/connection</span>
+      <span class="meta">이벤트성 · retain ▾</span>
+    </div>
+    <div class="body">
+      <p><code class="inline">connectionState</code> 하나가 전부: <b>ONLINE</b>(정상) / <b>OFFLINE</b>(브로커에는 살아있지만 로봇 프로세스가 죽었을 때 브로커가 띄우는 유서) / <b>CONNECTIONBROKEN</b>(통신 두절 보고).</p>
+      <div class="copyrow"><pre id="ex-conn"></pre><button class="btn-copy" onclick="copyPre('ex-conn')">복사</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ophead" onclick="toggleCard(this)">
+      <span class="method m-up">관제 → 로봇</span><span class="topic">…/order</span>
+      <span class="meta">경로 오더 · QoS 1 ▾</span>
+    </div>
+    <div class="body">
+      <table>
+        <tr><th>필드</th><th>설명</th></tr>
+        <tr><td><code class="inline">orderId</code></td><td>오더 고유번호. <b>새 주행엔 항상 새 orderId</b> (완주한 오더 재발행은 중복 무시됨)</td></tr>
+        <tr><td><code class="inline">orderUpdateId</code></td><td>같은 orderId로 경로를 바꿀 때 1씩 증가. 로봇은 더 큰 값만 수용</td></tr>
+        <tr><td><code class="inline">nodes[]</code></td><td><code class="inline">{nodeId, sequenceId, released, nodePosition:{x,y,theta,mapId}, actions[]}</code></td></tr>
+        <tr><td><code class="inline">edges[]</code></td><td><code class="inline">{edgeId?, sequenceId, startNodeId, endNodeId, released}</code> — 노드들을 잇는 이동 구간</td></tr>
+        <tr><td><code class="inline">sequenceId</code></td><td>실행 순서 — 오더 전체에서 단조 증가 (관례: 노드 1,3,5… / 엣지 2,4…)</td></tr>
+        <tr><td><code class="inline">actions[]</code></td><td>노드 도달 시 실행: <code class="inline">{actionId, actionType, blockingType}</code> — pick/drop/charge…</td></tr>
+      </table>
+      <p class="meta">⚠️ 로봇은 sequenceId 순서대로만 진행하고, busy 상태에서 다른 orderId는 거절합니다(관제에 409).</p>
+      <div class="copyrow"><pre id="ex-order"></pre><button class="btn-copy" onclick="copyPre('ex-order')">복사</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ophead" onclick="toggleCard(this)">
+      <span class="method m-up">관제 → 로봇</span><span class="topic">…/instantActions</span>
+      <span class="meta">즉시 동작 · QoS 1 ▾</span>
+    </div>
+    <div class="body">
+      <table>
+        <tr><th>actionType</th><th>동작</th><th>파라미터</th></tr>
+        <tr><td><code class="inline">faxEStop</code></td><td>비상정지 activate → FATAL 에러 + 즉시 정지 + <b>활성 오더 폐기</b>. deactivate → 해제(수동 재출발 필요)</td><td><code class="inline">[{key:"activate", value:true|false}]</code></td></tr>
+        <tr><td><code class="inline">cancelOrder</code></td><td>현재 오더 폐기 (에러 없음, IDLE 복귀)</td><td>없음</td></tr>
+      </table>
+      <div class="copyrow"><pre id="ex-estop"></pre><button class="btn-copy" onclick="copyPre('ex-estop')">복사</button></div>
+      <div class="copyrow"><pre id="ex-cancel"></pre><button class="btn-copy" onclick="copyPre('ex-cancel')">복사</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ophead" onclick="toggleCard(this)">
+      <span class="method m-down">로봇 → 관제</span><span class="topic">…/visualization</span>
+      <span class="meta">위치 스트림 ▾</span>
+    </div>
+    <div class="body">
+      <p>state의 부분집합(agvPosition 위주) — 지도를 부드럽게 그릴 때 씁니다.</p>
+      <div class="copyrow"><pre id="ex-vis"></pre><button class="btn-copy" onclick="copyPre('ex-vis')">복사</button></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ 3. 명령 카탈로그 ═══════════════ -->
+  <h2>3. 명령 카탈로그 <span class="tag">COMMANDS — 복사해서 바로 실행</span></h2>
+  <div class="card">
+    <p>아래 명령은 저장소 루트에서 실행한다고 가정합니다 (브로커가 <code class="inline">docker compose up</code>으로 떠 있어야 함). <b>[복사] → 터미널에 붙여넣기</b>.</p>
+
+    <h3>👁 관찰 (subscribe)</h3>
+    <div class="copyrow"><pre id="c-sub-all"></pre><button class="btn-copy" onclick="copyPre('c-sub-all')">복사</button></div>
+    <div class="copyrow"><pre id="c-sub-state"></pre><button class="btn-copy" onclick="copyPre('c-sub-state')">복사</button></div>
+    <div class="copyrow"><pre id="c-sub-conn"></pre><button class="btn-copy" onclick="copyPre('c-sub-conn')">복사</button></div>
+
+    <h3>🚚 제어 (publish)</h3>
+    <div class="copyrow"><pre id="c-move"></pre><button class="btn-copy" onclick="copyPre('c-move')">복사</button></div>
+    <div class="copyrow"><pre id="c-charge"></pre><button class="btn-copy" onclick="copyPre('c-charge')">복사</button></div>
+    <div class="copyrow"><pre id="c-estop"></pre><button class="btn-copy" onclick="copyPre('c-estop')">복사</button></div>
+    <div class="copyrow"><pre id="c-recover"></pre><button class="btn-copy" onclick="copyPre('c-recover')">복사</button></div>
+    <div class="copyrow"><pre id="c-cancel"></pre><button class="btn-copy" onclick="copyPre('c-cancel')">복사</button></div>
+
+    <h3>🧨 고장주입 (REST — 포트 8090)</h3>
+    <div class="copyrow"><pre id="c-fault-obstacle"></pre><button class="btn-copy" onclick="copyPre('c-fault-obstacle')">복사</button></div>
+    <div class="copyrow"><pre id="c-fault-drive"></pre><button class="btn-copy" onclick="copyPre('c-fault-drive')">복사</button></div>
+    <div class="copyrow"><pre id="c-fault-comm"></pre><button class="btn-copy" onclick="copyPre('c-fault-comm')">복사</button></div>
+    <div class="copyrow"><pre id="c-fault-clear"></pre><button class="btn-copy" onclick="copyPre('c-fault-clear')">복사</button></div>
+    <p class="meta">전체 고장 종류와 REST 인터페이스 문서는 로봇 기동 후 <code class="inline">http://localhost:8090/docs</code> (Swagger UI)에서도 볼 수 있습니다.</p>
+  </div>
+
+  <!-- ═══════════════ 4. 라이브 콘솔 ═══════════════ -->
+  <h2>4. 라이브 콘솔 <span class="tag">TRY IT OUT</span></h2>
+  <div class="notice">
+    이 페이지를 <b>브라우저에서 열면</b> 아래 버튼으로 실제 로봇을 제어할 수 있습니다.
+    브라우저 ↔ mosquitto WebSocket(9001) 직접 연결 — Swagger의 "Execute"와 같은 것입니다.
+  </div>
+  <div class="card console">
+    <div class="connrow">
+      <input type="text" id="wsurl" value="ws://localhost:9001" spellcheck="false">
+      <button class="btn-cmd" id="btn-conn" onclick="toggleConnect()">연결</button>
+      <span class="pill off" id="pill2">미연결</span>
+    </div>
+    <div class="connrow">
+      <input type="text" id="filter" placeholder="토픽 필터 (예: state) — 비우면 전부" spellcheck="false" oninput="renderFeed()">
+      <button class="btn-cmd" onclick="clearFeed()">피드 지우기</button>
+      <button class="btn-cmd" id="btn-pause" onclick="togglePause()">일시정지</button>
+    </div>
+    <div id="feed"></div>
+    <h3 style="color:#e2e8f0">📤 발행 (연결 후 활성화)</h3>
+    <div>
+      <button class="btn-cmd" id="pb-move" onclick="pubExample('move')" disabled>▶ 주행 오더 (N1→N3)</button>
+      <button class="btn-cmd" id="pb-charge" onclick="pubExample('charge')" disabled>🔋 충전 오더 (N4)</button>
+      <button class="btn-cmd danger" id="pb-estop" onclick="pubExample('estop')" disabled>🛑 비상정지</button>
+      <button class="btn-cmd" id="pb-recover" onclick="pubExample('recover')" disabled>✅ 비상정지 해제</button>
+      <button class="btn-cmd warn" id="pb-cancel" onclick="pubExample('cancel')" disabled>✖ 오더 취소</button>
+    </div>
+    <h3 style="color:#e2e8f0">🧨 고장주입 (REST — 브로커 연결 없이 동작)</h3>
+    <div>
+      <button class="btn-cmd warn" onclick="restFault('obstacle')">장애물 (보호정지)</button>
+      <button class="btn-cmd warn" onclick="restFault('sto_warning')">STO 워닝 (절반속도)</button>
+      <button class="btn-cmd danger" onclick="restFault('drive_error')">구동유닛 고장</button>
+      <button class="btn-cmd danger" onclick="restFault('comm_loss')">통신두절 (3초)</button>
+      <button class="btn-cmd warn" onclick="restFault('low_battery')">저전압 (12%)</button>
+      <button class="btn-cmd" onclick="restClear()">전부 해제</button>
+    </div>
+    <p class="meta" style="margin-top:10px" id="restlog"></p>
+  </div>
+
+  <!-- ═══════════════ 5. 안전 규칙 ═══════════════ -->
+  <h2>5. 에러 레벨과 safePLC <span class="tag">SAFETY</span></h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>errors[] 레벨 의미</h3>
+      <table>
+        <tr><th>errorLevel</th><th>관제 화면</th><th>로봇 행동</th></tr>
+        <tr><td><span class="badge b-warn">WARNING</span></td><td>주황 — 참고</td><td>원칙: 작업 지속 (장애물·STO는 safePLC가 보호정지/감속)</td></tr>
+        <tr><td><span class="badge b-err">ERROR</span></td><td>빨강 — 실패</td><td>주행 차단, 해제 대기</td></tr>
+        <tr><td><span class="badge b-err">FATAL</span></td><td>빨강 — 즉시 대응</td><td>즉시 정지 + 인터락 (E-stop)</td></tr>
+      </table>
+      <p class="meta">관측된 실물 사례: 충전 도킹 중 STO 워닝(0x207)은 WARNING — 작업 지속. 같은 그림이 본 시뮬레이터에 구현돼 있습니다.</p>
+    </div>
+    <div class="card">
+      <h3>학습 지도 (mapId: study_map)</h3>
+      <div class="map" id="map"></div>
+      <p class="meta">N4가 초록(충전 스테이션). 오더는 이 노드 좌표를 nodePosition에 담아 발행합니다.</p>
+    </div>
+  </div>
+
+  <div class="notice red">
+    ⚠️ 이 패키지의 브로커는 <b>연습용</b>입니다. 실물 로봇이 붙은 브로커에는 절대 연결하지 마세요.
+    모든 라이브 실습은 <code class="inline">docker compose up</code>으로 띄운 자체 브로커에서만 하세요.
+  </div>
+
+  <div class="foot">
+    bsm_study_vda5050 · VDA5050 v2.0.0 기반 교육용 가상로봇 · 이 문서는 단일 HTML 파일로,
+    브로커 WebSocket(9001)에 직접 붙는 미니 MQTT 클라이언트를 내장하고 있습니다 (오프라인 동작).
+    자세한 학습 절차는 <code class="inline">docs/02_quickstart.md</code>부터.
+  </div>
+</main>
+
+<script>
+"use strict";
+/* ═══════════ 예제 페이로드 (examples/*.json과 동일) ═══════════ */
+const PAYLOADS = {
+  state: {"headerId":84,"timestamp":"2026-10-18T00:00:00.123Z","version":"2.0.0","manufacturer":"study","serialNumber":"SIM-001","opState":"WORKING","orderId":"ORDER-MOVE-N1-N3","orderUpdateId":0,"lastNodeId":"N2","lastNodeSequenceId":3,"agvPosition":{"x":3.0,"y":0.0,"theta":0.0,"mapId":"study_map","positionInitialized":true},"batteryState":{"batteryCharge":98.4,"charging":false},"actionStates":[],"nodeStates":[{"nodeId":"N1","sequenceId":1,"nodeStatus":"FINISHED"},{"nodeId":"N2","sequenceId":3,"nodeStatus":"RUNNING"},{"nodeId":"N3","sequenceId":5,"nodeStatus":"PENDING"}],"edgeStates":[{"sequenceId":2,"edgeStatus":"FINISHED"},{"sequenceId":4,"edgeStatus":"RUNNING"}],"errors":[]},
+  conn: {"headerId":1,"timestamp":"2026-10-18T00:00:00.000Z","version":"2.0.0","manufacturer":"study","serialNumber":"SIM-001","connectionState":"ONLINE"},
+  order: {"headerId":1,"timestamp":"2026-10-18T00:00:00.000Z","version":"2.0.0","manufacturer":"study","serialNumber":"SIM-001","orderId":"ORDER-MOVE-N1-N3","orderUpdateId":0,"nodes":[{"nodeId":"N1","sequenceId":1,"released":true,"nodePosition":{"x":0,"y":0,"theta":0,"mapId":"study_map"}},{"nodeId":"N2","sequenceId":3,"released":true,"nodePosition":{"x":3,"y":0,"theta":0,"mapId":"study_map"}},{"nodeId":"N3","sequenceId":5,"released":true,"nodePosition":{"x":6,"y":0,"theta":0,"mapId":"study_map"}}],"edges":[{"sequenceId":2,"startNodeId":"N1","endNodeId":"N2","released":true},{"sequenceId":4,"startNodeId":"N2","endNodeId":"N3","released":true}]},
+  charge: {"headerId":2,"timestamp":"2026-10-18T00:01:00.000Z","version":"2.0.0","manufacturer":"study","serialNumber":"SIM-001","orderId":"ORDER-CHARGE-N4","orderUpdateId":0,"nodes":[{"nodeId":"N2","sequenceId":1,"released":true,"nodePosition":{"x":3,"y":0,"theta":0,"mapId":"study_map"}},{"nodeId":"N3","sequenceId":3,"released":true,"nodePosition":{"x":6,"y":0,"theta":0,"mapId":"study_map"}},{"nodeId":"N4","sequenceId":5,"released":true,"nodePosition":{"x":6,"y":3,"theta":0,"mapId":"study_map"},"actions":[{"actionId":"charge-1","actionType":"charge","blockingType":"NONE"}]}],"edges":[{"sequenceId":2,"startNodeId":"N2","endNodeId":"N3","released":true},{"sequenceId":4,"startNodeId":"N3","endNodeId":"N4","released":true}]},
+  estop: {"headerId":10,"timestamp":"2026-10-18T00:02:00.000Z","version":"2.0.0","manufacturer":"study","serialNumber":"SIM-001","actions":[{"actionId":"estop-1","actionType":"faxEStop","blockingType":"STOP","actionParameters":[{"key":"activate","value":true}]}]},
+  recover: {"headerId":11,"timestamp":"2026-10-18T00:03:00.000Z","version":"2.0.0","manufacturer":"study","serialNumber":"SIM-001","actions":[{"actionId":"estop-1","actionType":"faxEStop","blockingType":"STOP","actionParameters":[{"key":"activate","value":false}]}]},
+  cancel: {"headerId":12,"timestamp":"2026-10-18T00:04:00.000Z","version":"2.0.0","manufacturer":"study","serialNumber":"SIM-001","actions":[{"actionId":"cancel-1","actionType":"cancelOrder","blockingType":"NONE"}]},
+  vis: {"headerId":7,"timestamp":"2026-10-18T00:00:00.000Z","version":"2.0.0","manufacturer":"study","serialNumber":"SIM-001","agvPosition":{"x":3.0,"y":0.0,"theta":0.0,"mapId":"study_map","positionInitialized":true}}
+};
+
+const TOPIC = {
+  state: "uagv/v2/study/SIM-001/state",
+  connection: "uagv/v2/study/SIM-001/connection",
+  visualization: "uagv/v2/study/SIM-001/visualization",
+  order: "uagv/v2/study/SIM-001/order",
+  instantActions: "uagv/v2/study/SIM-001/instantActions"
+};
+
+/* ═══════════ 정적 예제 렌더 + JSON 하이라이트 ═══════════ */
+function hl(json) {
+  return json.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">")
+    .replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+      m => { let c = "num";
+        if (/^"/.test(m)) c = /:$/.test(m) ? "key" : "str";
+        else if (/true|false/.test(m)) c = "bool";
+        else if (/null/.test(m)) c = "null";
+        return '<span class="' + c + '">' + m + "</span>"; });
+}
+function renderPre(id, obj) {
+  document.getElementById(id).innerHTML = hl(JSON.stringify(obj, null, 2));
+}
+renderPre("ex-state", PAYLOADS.state);
+renderPre("ex-conn", PAYLOADS.conn);
+renderPre("ex-order", PAYLOADS.order);
+renderPre("ex-estop", PAYLOADS.estop);
+renderPre("ex-cancel", PAYLOADS.cancel);
+renderPre("ex-vis", PAYLOADS.vis);
+
+/* ═══════════ 명령 카탈로그 (복사용) ═══════════ */
+const CMD = {
+  "c-sub-all":   "docker compose exec mosquitto mosquitto_sub -h localhost -t 'uagv/#' -v -C 10 -W 15",
+  "c-sub-state": "docker compose exec mosquitto mosquitto_sub -h localhost -t 'uagv/v2/study/SIM-001/state' -C 3 -W 5 | python3 -m json.tool",
+  "c-sub-conn":  "docker compose exec mosquitto mosquitto_sub -h localhost -t 'uagv/v2/study/SIM-001/connection' -C 1 -W 5",
+  "c-move":      "docker cp examples/order_move_n1_n3.json study-mosquitto:/tmp/o.json && \\\n  docker compose exec mosquitto mosquitto_pub -h localhost -t 'uagv/v2/study/SIM-001/order' -f /tmp/o.json",
+  "c-charge":    "docker cp examples/order_charge_n4.json study-mosquitto:/tmp/c.json && \\\n  docker compose exec mosquitto mosquitto_pub -h localhost -t 'uagv/v2/study/SIM-001/order' -f /tmp/c.json",
+  "c-estop":     "docker cp examples/instant_actions_estop.json study-mosquitto:/tmp/e.json && \\\n  docker compose exec mosquitto mosquitto_pub -h localhost -t 'uagv/v2/study/SIM-001/instantActions' -f /tmp/e.json",
+  "c-recover":   "docker cp examples/instant_actions_estop_recover.json study-mosquitto:/tmp/r.json && \\\n  docker compose exec mosquitto mosquitto_pub -h localhost -t 'uagv/v2/study/SIM-001/instantActions' -f /tmp/r.json",
+  "c-cancel":    "docker cp examples/instant_actions_cancel.json study-mosquitto:/tmp/x.json && \\\n  docker compose exec mosquitto mosquitto_pub -h localhost -t 'uagv/v2/study/SIM-001/instantActions' -f /tmp/x.json",
+  "c-fault-obstacle": "curl -s -X POST http://localhost:8090/faults -H 'Content-Type: application/json' \\\n  -d '{\"type\": \"obstacle\", \"duration_s\": 5}'",
+  "c-fault-drive":    "curl -s -X POST http://localhost:8090/faults -H 'Content-Type: application/json' \\\n  -d '{\"type\": \"drive_error\", \"duration_s\": 3}'",
+  "c-fault-comm":     "curl -s -X POST http://localhost:8090/faults -H 'Content-Type: application/json' \\\n  -d '{\"type\": \"comm_loss\", \"duration_s\": 3}'",
+  "c-fault-clear":    "curl -s -X POST http://localhost:8090/faults/clear"
+};
+for (const [id, cmd] of Object.entries(CMD)) {
+  document.getElementById(id).textContent = cmd;
+}
+
+function copyPre(id) {
+  const text = document.getElementById(id).textContent;
+  const done = () => { const b = event && event.target;
+    if (b) { const old = b.textContent; b.textContent = "복사됨 ✓"; setTimeout(() => b.textContent = old, 900); } };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else { fallbackCopy(text, done); }
+}
+function fallbackCopy(text, done) {
+  const ta = document.createElement("textarea");
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } finally { document.body.removeChild(ta); }
+}
+function toggleCard(head) {
+  const body = head.nextElementSibling;
+  body.classList.toggle("hidden");
+}
+
+/* ═══════════ 노드 지도 ═══════════ */
+(function drawMap() {
+  const map = document.getElementById("map");
+  const nodes = [["N1",0,0],["N2",3,0],["N3",6,0],["N4",6,3],["N5",3,3]];
+  const edges = [["N1","N2"],["N2","N3"],["N3","N4"],["N4","N5"],["N5","N2"]];
+  const sx = 90, sy = 55, ox = 60, oy = 190;
+  const px = n => { const [ , x, y] = nodes.find(v => v[0] === n); return [ox + x * sx, oy - y * sy]; };
+  for (const [a, b] of edges) {
+    const [x1, y1] = px(a), [x2, y2] = px(b);
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    const ang = Math.atan2(y2 - y1, x2 - x1);
+    const d = document.createElement("div");
+    d.className = "edge";
+    d.style.left = x1 + "px"; d.style.top = y1 + "px";
+    d.style.width = len + "px"; d.style.transform = "rotate(" + ang + "rad)";
+    map.appendChild(d);
+  }
+  for (const [id, x, y] of nodes) {
+    const d = document.createElement("div");
+    d.className = "node" + (id === "N4" ? " chg" : "");
+    d.style.left = (ox + x * sx) + "px"; d.style.top = (oy - y * sy) + "px";
+    d.textContent = id; d.title = "(" + x + ", " + y + ")" + (id === "N4" ? " 충전" : "");
+    map.appendChild(d);
+  }
+})();
+
+/* ═══════════ 라이브 콘솔 — 미니 MQTT 클라이언트 (WebSocket) ═══════════
+   바이트 인코딩은 실제 브로커로 검증된 로직 그대로:
+   CONNECT→CONNACK / SUBSCRIBE→SUBACK / PUBLISH(qos0) / PINGREQ→PINGRESP
+   주의: MQTT remaining-length는 가변 길이(1~4바이트) — 파싱 시 반드시 건너뛴다. */
+let ws = null, connected = false, pending = new Uint8Array(0);
+let feedPaused = false, feedItems = [], pingTimer = null;
+
+function setPill(state, text) {
+  for (const id of ["pill", "pill2"]) {
+    const el = document.getElementById(id);
+    el.className = "pill " + state; el.textContent = text;
+  }
+}
+function setPubButtons(on) {
+  for (const id of ["pb-move", "pb-charge", "pb-estop", "pb-recover", "pb-cancel"])
+    document.getElementById(id).disabled = !on;
+}
+
+function mqttPacket(type, body) {
+  const rem = []; let n = body.length;
+  while (true) { let d = n % 128; n = Math.floor(n / 128); if (n > 0) d |= 0x80; rem.push(d); if (n === 0) break; }
+  const out = new Uint8Array(1 + rem.length + body.length);
+  out[0] = type; out.set(rem, 1); out.set(body, 1 + rem.length);
+  return out;
+}
+function mqttStr(s) {
+  const b = new TextEncoder().encode(s);
+  const out = new Uint8Array(2 + b.length);
+  out[0] = (b.length >> 8) & 0xff; out[1] = b.length & 0xff; out.set(b, 2);
+  return out;
+}
+const connectPacket = id => mqttPacket(0x10, [...mqttStr("MQTT"), 0x04, 0x02, 0x00, 0x3c, ...mqttStr(id)]);
+const subscribePacket = (pid, topic) => mqttPacket(0x82, new Uint8Array([(pid >> 8) & 0xff, pid & 0xff, ...mqttStr(topic), 0x00]));
+const publishPacket = (topic, obj) => mqttPacket(0x30, [...mqttStr(topic), ...new TextEncoder().encode(JSON.stringify(obj))]);
+
+function parsePublish(packet) {  // packet = [type, remlen..., topicLen..., topic, payload]
+  let i = 1, rem = 0, mult = 1;
+  while (true) { const b = packet[i++]; rem += (b & 0x7f) * mult; if (!(b & 0x80)) break; mult *= 128; }
+  const tlen = (packet[i] << 8) | packet[i + 1];
+  const topic = new TextDecoder().decode(packet.slice(i + 2, i + 2 + tlen));
+  const body = new TextDecoder().decode(packet.slice(i + 2 + tlen));
+  return { topic, body };
+}
+function drainBuffer() {
+  while (pending.length >= 2) {
+    let j = 1, rem = 0, mult = 1;
+    while (true) { const b = pending[j++]; rem += (b & 0x7f) * mult; if (!(b & 0x80)) break; mult *= 128; }
+    if (pending.length < j + rem) break;
+    const packet = pending.slice(0, j + rem);
+    pending = pending.slice(j + rem);
+    handlePacket(packet);
+  }
+}
+function handlePacket(packet) {
+  const type = packet[0] >> 4;
+  if (type === 2) {                       // CONNACK
+    const rc = packet[3];
+    if (rc === 0) {
+      connected = true; setPill("on", "브로커 연결됨"); setPubButtons(true);
+      ws.send(subscribePacket(1, "uagv/#"));
+      feedPush("sys", "구독 시작: uagv/#");
+    } else { setPill("err", "연결 거부 rc=" + rc); }
+  } else if (type === 3) {                // PUBLISH
+    const { topic, body } = parsePublish(packet);
+    feedPush(topic, body);
+  }
+  // SUBACK(9)/PINGRESP(13)은 조용히 통과
+}
+
+function toggleConnect() {
+  if (ws) { disconnect(); return; }
+  const url = document.getElementById("wsurl").value.trim();
+  setPill("off", "연결 중…");
+  try { ws = new WebSocket(url, "mqtt"); } catch (e) { setPill("err", "URL 오류"); ws = null; return; }
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => {
+    const clientId = "study-web-" + Math.random().toString(16).slice(2, 8);
+    ws.send(connectPacket(clientId));
+    pingTimer = setInterval(() => { if (connected) ws.send(mqttPacket(0xc0, new Uint8Array(0))); }, 25000);
+  };
+  ws.onmessage = ev => {
+    const incoming = new Uint8Array(ev.data);
+    const merged = new Uint8Array(pending.length + incoming.length);
+    merged.set(pending); merged.set(incoming, pending.length);
+    pending = merged; drainBuffer();
+  };
+  ws.onerror = () => { setPill("err", "연결 오류 (브로커 떠 있는지 확인)"); };
+  ws.onclose = () => disconnect();
+  document.getElementById("btn-conn").textContent = "연결 끊기";
+}
+function disconnect() {
+  if (ws) { try { ws.send(mqttPacket(0xe0, new Uint8Array(0))); } catch (e) {} ws.close(); }
+  ws = null; connected = false; setPubButtons(false); setPill("off", "브로커 미연결");
+  clearInterval(pingTimer);
+  document.getElementById("btn-conn").textContent = "연결";
+}
+
+function pubExample(kind) {
+  if (!connected) return;
+  const map = { move: [TOPIC.order, PAYLOADS.order], charge: [TOPIC.order, PAYLOADS.charge],
+                estop: [TOPIC.instantActions, PAYLOADS.estop],
+                recover: [TOPIC.instantActions, PAYLOADS.recover],
+                cancel: [TOPIC.instantActions, PAYLOADS.cancel] };
+  const [topic, payload] = map[kind];
+  ws.send(publishPacket(topic, payload));
+  feedPush("sys", "발행 → " + topic);
+}
+
+/* REST 고장주입 */
+const REST = "http://localhost:8090";
+function restLog(msg) { document.getElementById("restlog").textContent = msg; }
+async function restFault(type) {
+  try {
+    const r = await fetch(REST + "/faults", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: type, duration_s: 5 }) });
+    restLog("주입됨: " + type + " (" + (r.ok ? "5초간)" : "실패 " + r.status + ")"));
+  } catch (e) { restLog("실패 — robot-sim(8090)이 떠 있는지 확인: " + e); }
+}
+async function restClear() {
+  try { const r = await fetch(REST + "/faults/clear", { method: "POST" });
+    const j = await r.json(); restLog("해제됨: " + JSON.stringify(j.cleared));
+  } catch (e) { restLog("실패 — robot-sim(8090)이 떠 있는지 확인: " + e); }
+}
+
+/* 피드 */
+function feedPush(topic, body) {
+  feedItems.unshift({ t: new Date().toLocaleTimeString("ko-KR", { hour12: false }), topic: topic, body: body });
+  if (feedItems.length > 100) feedItems.pop();
+  if (!feedPaused) renderFeed();
+}
+function renderFeed() {
+  const f = document.getElementById("filter").value;
+  const feed = document.getElementById("feed");
+  feed.innerHTML = feedItems
+    .filter(it => !f || it.topic.includes(f) || it.body.includes(f))
+    .map(it => '<div><span class="t">' + it.t + '</span><span class="tp">' + it.topic + "</span> " +
+               escapeHtml(shorten(it.body, 220)) + "</div>").join("");
+}
+function shorten(s, n) { return s.length > n ? s.slice(0, n) + " …" : s; }
+function escapeHtml(s) { return s.replace(/&/g, "&").replace(/</g, "<"); }
+function clearFeed() { feedItems = []; renderFeed(); }
+function togglePause() {
+  feedPaused = !feedPaused;
+  document.getElementById("btn-pause").textContent = feedPaused ? "재생" : "일시정지";
+  if (!feedPaused) renderFeed();
+}
+</script>
+</body>
+</html>
